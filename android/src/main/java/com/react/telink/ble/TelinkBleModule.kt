@@ -31,6 +31,8 @@ import com.telink.ble.mesh.foundation.parameter.ProvisioningParameters
 import com.telink.ble.mesh.foundation.parameter.ScanParameters
 import com.telink.ble.mesh.util.Arrays
 import com.telink.ble.mesh.util.MeshLogger
+import java.util.Timer
+import kotlin.concurrent.schedule
 
 class TelinkBleModule :
   ReactContextBaseJavaModule, EventListener<String?>, MeshAutoConnect {
@@ -98,19 +100,21 @@ class TelinkBleModule :
     val result = WritableNativeArray()
     if (nodes != null) {
       for (node in nodes) {
-        val nodeInfo = WritableNativeMap()
-        nodeInfo.putString("uuid", node.deviceUUID.toHexString())
-        nodeInfo.putString("address", node.macAddress)
-        nodeInfo.putInt("unicastId", node.meshAddress)
-        nodeInfo.putBoolean("bound", node.bound)
-        nodeInfo.putString("pidDesc", node.pidDesc)
-        nodeInfo.putString("onOffDesc", node.onOffDesc)
-        nodeInfo.putString("deviceKey", "${node.deviceKey}")
-        nodeInfo.putInt("elementCnt", node.elementCnt)
-        nodeInfo.putBoolean("isDefaultBind", node.isDefaultBind)
-        nodeInfo.putInt("lum", node.lum)
-        nodeInfo.putInt("temp", node.temp)
-        result.pushMap(nodeInfo)
+        if (node.onOffDesc != "OFFLINE") {
+          val nodeInfo = WritableNativeMap()
+          nodeInfo.putString("uuid", node.deviceUUID.toHexString())
+          nodeInfo.putString("address", node.macAddress)
+          nodeInfo.putInt("unicastId", node.meshAddress)
+          nodeInfo.putBoolean("bound", node.bound)
+          nodeInfo.putString("pidDesc", node.pidDesc)
+          nodeInfo.putString("onOffDesc", node.onOffDesc)
+          nodeInfo.putString("deviceKey", "${node.deviceKey}")
+          nodeInfo.putInt("elementCnt", node.elementCnt)
+          nodeInfo.putBoolean("isDefaultBind", node.isDefaultBind)
+          nodeInfo.putInt("lum", node.lum)
+          nodeInfo.putInt("temp", node.temp)
+          result.pushMap(nodeInfo)
+        }
       }
       promise.resolve(result)
       return
@@ -158,13 +162,19 @@ class TelinkBleModule :
     val cmdSent =
       MeshService.getInstance().sendMeshMessage(NodeResetMessage(deviceId))
     val kickDirect = deviceId == MeshService.getInstance().directConnectedNodeAddress
-    if (!cmdSent || !kickDirect) {
-      mHandler!!.postDelayed(
-        {
-          onKickOutFinish(deviceId)
-        },
-        3 * 1000L
-      )
+    if (cmdSent || !kickDirect) {
+      eventEmitter.emit(EVENT_RESET_NODE_SUCCESS, true)
+//      Timer("SettingUp", false).schedule(3000) {
+////        MeshService.getInstance().removeDevice(deviceId)
+//
+//      }
+
+//      mHandler!!.postDelayed(
+//        {
+//          onKickOutFinish(deviceId)
+//        },
+//        3 * 1000L
+//      )
     }
   }
 
@@ -173,7 +183,7 @@ class TelinkBleModule :
     MeshService.getInstance().removeDevice(deviceId)
     application!!.getMeshInfo().removeDeviceByMeshAddress(deviceId)
     application!!.getMeshInfo().saveOrUpdate(context)
-    eventEmitter.emit(EVENT_RESET_NODE_SUCCESS, deviceId)
+    eventEmitter.emit(EVENT_RESET_NODE_SUCCESS, true)
   }
 
   @ReactMethod
@@ -344,13 +354,12 @@ class TelinkBleModule :
     }
     nodeInfo.isDefaultBind = defaultBound
     pvDevice.addLog(NetworkingDevice.TAG_BIND, "action start")
-    // TODO: emit to JS
     val appKeyIndex: Int = application!!.getMeshInfo().defaultAppKeyIndex
     val bindingDevice = BindingDevice(nodeInfo.meshAddress, nodeInfo.deviceUUID, appKeyIndex)
     bindingDevice.isDefaultBound = defaultBound
     bindingDevice.bearer = BindingBearer.GattOnly
-    //        bindingDevice.setDefaultBound(false);
     MeshService.getInstance().startBinding(BindingParameters(bindingDevice))
+    eventEmitter.emit(EVENT_PROVISIONING_SUCCESS, pvDevice.nodeInfo.macAddress)
   }
 
   private fun onKeyBindFail(event: BindingEvent) {
@@ -370,13 +379,13 @@ class TelinkBleModule :
     }
     pvDevice.state = NetworkingState.PROVISION_FAIL
     pvDevice.addLog(NetworkingDevice.TAG_PROVISION, event.desc)
-    // TODO: Emit to JS
+    eventEmitter.emit(EVENT_PROVISIONING_FAILED, true)
   }
 
   private fun onProvisionStart(event: ProvisioningEvent) {
     val pvDevice: NetworkingDevice = getCurrentDevice(NetworkingState.PROVISIONING) ?: return
     pvDevice.addLog(NetworkingDevice.TAG_PROVISION, "begin")
-    // TODO: Emit to JS
+    eventEmitter.emit(EVENT_PROVISIONING_START, pvDevice.nodeInfo.macAddress)
   }
 
   private fun onTimePublishComplete(success: Boolean, desc: String) {
@@ -491,8 +500,8 @@ class TelinkBleModule :
       pvDevice.state = NetworkingState.BIND_SUCCESS
       // TODO: provision new device
     }
-    // TODO: emit to JS
     application!!.getMeshInfo().saveOrUpdate(context)
+    eventEmitter.emit(EVENT_BINDING_SUCCESS, true)
   }
 
   /**

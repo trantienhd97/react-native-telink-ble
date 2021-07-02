@@ -1,5 +1,4 @@
 import type { StackScreenProps } from '@react-navigation/stack';
-import DeviceScanningScreen from './DeviceScanningScreen';
 import type { FC } from 'react';
 import React from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
@@ -8,6 +7,7 @@ import TelinkBle, { NodeInfo } from 'react-native-telink-ble';
 import nameof from 'ts-nameof.macro';
 import NodeView from '../components/NodeView';
 import { DeviceControlScreen } from './DeviceControlScreen';
+import DeviceScanningScreen from './DeviceScanningScreen';
 
 export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
   props: Partial<StackScreenProps<any>>

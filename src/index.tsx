@@ -1,3 +1,4 @@
+import type { HSL } from 'colorsys';
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import { BleEvent } from './ble-event';
 import type { BluetoothState } from './bluetooth-state';
@@ -6,7 +7,6 @@ import { NATIVE_MODULE_NAME } from './config';
 import type { Device } from './device';
 import type { NodeInfo } from './node-info';
 import type { TelinkBleNativeModule } from './telink-ble-native-module';
-import type { HSL } from 'colorsys';
 
 const TelinkBleModule: TelinkBleNativeModule =
   NativeModules[NATIVE_MODULE_NAME];
@@ -144,6 +144,12 @@ class TelinkBle implements TelinkBleNativeModule {
     listener: (device: BoundDevice) => void | Promise<void>
   ) {
     return this.addEventListener(BleEvent.EVENT_BINDING_SUCCESS, listener);
+  }
+
+  public addBindingFailListener(
+    listener: (device: BoundDevice) => void | Promise<void>
+  ) {
+    return this.addEventListener(BleEvent.EVENT_BINDING_FAILED, listener);
   }
 }
 

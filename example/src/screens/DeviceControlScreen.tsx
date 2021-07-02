@@ -3,9 +3,9 @@ import type { StackScreenProps } from '@react-navigation/stack';
 import { hex2Hsl, HSV, hsv2Hex } from 'colorsys';
 import type { FC } from 'react';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ColorPicker } from 'react-native-color-picker';
-import TelinkBle, { NodeInfo } from 'react-native-telink-ble';
+import TelinkBle, { BleEvent, NodeInfo } from 'react-native-telink-ble';
 import nameof from 'ts-nameof.macro';
 
 interface DeviceControlParams {
@@ -34,6 +34,16 @@ export const DeviceControlScreen: FC<DeviceControlProps> = (
     [node.unicastId]
   );
 
+  React.useEffect(() => {
+    return TelinkBle.addEventListener(BleEvent.EVENT_RESET_NODE_SUCCESS, () => {
+      props.navigation.goBack();
+    });
+  }, [props.navigation]);
+
+  const handleKickOut = React.useCallback(() => {
+    TelinkBle.kickOut(node.unicastId);
+  }, [node.unicastId]);
+
   return (
     <>
       <Slider
@@ -43,7 +53,6 @@ export const DeviceControlScreen: FC<DeviceControlProps> = (
         minimumTrackTintColor="#FFFFFF"
         maximumTrackTintColor="#000000"
         onValueChange={(value: number) => {
-          console.log(value);
           TelinkBle.setLuminance(node.unicastId, value);
         }}
       />
@@ -54,11 +63,16 @@ export const DeviceControlScreen: FC<DeviceControlProps> = (
         minimumTrackTintColor="#FFFFFF"
         maximumTrackTintColor="#000000"
         onValueChange={(value: number) => {
-          console.log(value);
           TelinkBle.setTemp(node.unicastId, value);
         }}
       />
       <ColorPicker onColorChange={handleChangeColor} style={styles.picker} />
+
+      <View style={styles.bTNView}>
+        <Pressable style={styles.bTNKickOff} onPress={handleKickOut}>
+          <Text style={styles.btnText}>Kick Off</Text>
+        </Pressable>
+      </View>
     </>
   );
 };
@@ -73,5 +87,20 @@ const styles = StyleSheet.create({
   picker: {
     width: '100%',
     aspectRatio: 1,
+  },
+  bTNView: {
+    marginTop: 30,
+    padding: 16,
+  },
+  bTNKickOff: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 5,
+    backgroundColor: 'red',
+    padding: 16,
+  },
+  btnText: {
+    color: 'white',
   },
 });
