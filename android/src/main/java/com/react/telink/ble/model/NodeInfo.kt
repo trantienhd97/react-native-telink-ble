@@ -61,7 +61,7 @@ class NodeInfo : Serializable {
   /**
    * device subscription/group info
    */
-  var subList: List<Int> = ArrayList()
+  var subList: ArrayList<Int> = ArrayList()
 
   // device lightness
   var lum = 0

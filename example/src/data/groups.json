@@ -1,0 +1,26 @@
+[
+    {
+        "id": 49152,
+        "name": "Living room",
+        "state": "InActive",
+        "devices": []
+    },
+    {
+        "id": 49154,
+        "name": "Kitten",
+        "state": "InActive",
+        "devices": []
+    },
+    {
+        "id": 49156,
+        "name": "Masster bedroom",
+        "state": "InActive",
+        "devices": []
+    },
+    {
+        "id": 49158,
+        "name": "Other",
+        "state": "InActive",
+        "devices": []
+    }
+]

@@ -8,11 +8,9 @@ import com.react.telink.ble.helpers.toHexString
 import com.react.telink.ble.model.*
 import com.telink.ble.mesh.core.MeshUtils
 import com.telink.ble.mesh.core.access.BindingBearer
+import com.telink.ble.mesh.core.message.MeshMessage
 import com.telink.ble.mesh.core.message.MeshSigModel
-import com.telink.ble.mesh.core.message.config.ConfigStatus
-import com.telink.ble.mesh.core.message.config.ModelPublicationSetMessage
-import com.telink.ble.mesh.core.message.config.ModelPublicationStatusMessage
-import com.telink.ble.mesh.core.message.config.NodeResetMessage
+import com.telink.ble.mesh.core.message.config.*
 import com.telink.ble.mesh.core.message.generic.OnOffSetMessage
 import com.telink.ble.mesh.core.message.lighting.CtlTemperatureSetMessage
 import com.telink.ble.mesh.core.message.lighting.HslSetMessage
@@ -31,8 +29,6 @@ import com.telink.ble.mesh.foundation.parameter.ProvisioningParameters
 import com.telink.ble.mesh.foundation.parameter.ScanParameters
 import com.telink.ble.mesh.util.Arrays
 import com.telink.ble.mesh.util.MeshLogger
-import java.util.Timer
-import kotlin.concurrent.schedule
 
 class TelinkBleModule :
   ReactContextBaseJavaModule, EventListener<String?>, MeshAutoConnect {
@@ -47,6 +43,20 @@ class TelinkBleModule :
   private var isScanning = false
 
   private var mHandler: Handler? = null
+
+  private var deviceInfo: NodeInfo? = null
+
+  private val allGroups: List<GroupInfo>? = null
+
+  private var groupAddress = 0
+
+  private var deviceAddress = 0
+
+  private var modelIndex = 0
+
+  private var opType = 0
+
+  private val models = MeshSigModel.getDefaultSubList()
 
   fun setHandler(handler: Handler) {
     mHandler = handler
@@ -138,10 +148,43 @@ class TelinkBleModule :
 
   @ReactMethod
   fun addDeviceToGroup(groupId: Int, deviceId: Int) {
+    deviceInfo = application!!.getMeshInfo().getDeviceByMeshAddress(deviceId)
+    groupAddress = groupId
+    deviceAddress = deviceId
+    opType = 0;
+    modelIndex = 0
+    setNextModel()
   }
 
   @ReactMethod
   fun removeDeviceFromGroup(groupId: Int, deviceId: Int) {
+    deviceInfo = application!!.getMeshInfo().getDeviceByMeshAddress(deviceId)
+    groupAddress = groupId
+    deviceAddress = deviceId
+    opType = 1
+    setNextModel()
+  }
+
+  private fun setNextModel() {
+    val eleAdr = deviceInfo!!.getTargetEleAdr(models[modelIndex].modelId)
+    if (eleAdr == -1) {
+      eventEmitter.emit(EVENT_SET_GROUP_FAILED, true)
+      return
+    }
+    val groupingMessage: MeshMessage = ModelSubscriptionSetMessage.getSimple(deviceAddress, opType, eleAdr, groupAddress, models[modelIndex].modelId, true)
+    if (!MeshService.getInstance().sendMeshMessage(groupingMessage)) {
+      eventEmitter.emit(EVENT_SET_GROUP_FAILED, true)
+    } else {
+      if (opType == 0) {
+        deviceInfo!!.subList.add(groupAddress)
+      } else {
+        deviceInfo!!.subList.remove((groupAddress as Int?)!!)
+      }
+      application!!.getMeshInfo().saveOrUpdate(context)
+      context!!.currentActivity!!.runOnUiThread(Runnable {
+        eventEmitter.emit(EVENT_SET_GROUP_SUCCESS, groupAddress)
+      })
+    }
   }
 
   @ReactMethod
