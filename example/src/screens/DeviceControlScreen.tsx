@@ -58,9 +58,13 @@ export const DeviceControlScreen: FC<DeviceControlProps> = (
   );
 
   React.useEffect(() => {
-    return TelinkBle.addEventListener(BleEvent.EVENT_RESET_NODE_SUCCESS, () => {
-      props.navigation.goBack();
-    });
+    return TelinkBle.addEventListener(
+      BleEvent.EVENT_RESET_NODE_SUCCESS,
+      async () => {
+        await asyncStorageRepository.removeGroups();
+        props.navigation.goBack();
+      }
+    );
   }, [props.navigation]);
 
   React.useEffect(() => {

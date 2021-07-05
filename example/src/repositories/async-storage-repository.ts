@@ -19,6 +19,10 @@ export class AsyncStorageRepository {
       resolve([]);
     });
   }
+
+  public async removeGroups() {
+    await AsyncStorage.removeItem('groups');
+  }
 }
 export const asyncStorageRepository: AsyncStorageRepository =
   new AsyncStorageRepository();
