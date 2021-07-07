@@ -108,8 +108,7 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
     const sceneAsync = await asyncStorageRepository.getScene();
     if (sceneAsync) {
       TelinkBle.setSceneForListDevice(
-        Number(Object.keys(sceneAsync)[Object.keys(sceneAsync).length - 1]) +
-          4153,
+        Number(Object.keys(sceneAsync)[Object.keys(sceneAsync).length - 1]) + 1,
         nodeSelected
       );
     } else {
@@ -141,9 +140,29 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
         }
         await asyncStorageRepository.saveScene(albumMapper);
         setListScene(albumMapper);
+        setNodeSelected([]);
       }
     );
   }, [nodeSelected, props.navigation]);
+
+  React.useEffect(() => {
+    return TelinkBle.addEventListener(
+      BleEvent.EVENT_REMOVE_SCENE_SUCCESS,
+      async (id: number) => {
+        const sceneAsync = await asyncStorageRepository.getScene();
+        const albumMapper: Record<number, NodeInfo[]> = {};
+        if (sceneAsync) {
+          for (const key in sceneAsync) {
+            if (key !== id.toString()) {
+              albumMapper[key] = sceneAsync[key];
+            }
+          }
+        }
+        setListScene(albumMapper);
+        await asyncStorageRepository.saveScene(albumMapper);
+      }
+    );
+  }, []);
 
   return (
     <>

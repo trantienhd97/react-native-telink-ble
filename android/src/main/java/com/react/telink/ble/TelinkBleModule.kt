@@ -45,6 +45,12 @@ class TelinkBleModule :
 
   private var isScanning = false
 
+  var sceneList: List<Scene>? = null
+
+  private var deleteIndex = 0
+
+  private var tarScene: Scene? = null
+
   private var mHandler: Handler? = null
 
   private var deviceInfo: NodeInfo? = null
@@ -215,6 +221,18 @@ class TelinkBleModule :
           it.meshAddress == deviceInfo!!.getInt("unicastId")
         }
 
+         var state: Scene.SceneState? = Scene.SceneState()
+        if (node != null) {
+          state?.address = node.meshAddress
+          state?.onOff = node.getOnOff()
+          state?.lum = node.lum
+          state?.temp = node.temp
+        }
+
+        if (state != null) {
+          scene!!.states.add(state)
+        }
+
         if (node != null) {
           if (node.getOnOff() === -1) {
             continue
@@ -266,6 +284,8 @@ class TelinkBleModule :
     }
     if (MeshService.getInstance().sendMeshMessage(meshMessage)) {
       eventEmitter.emit(EVENT_SET_SCENE_SUCCESS, scene!!.id)
+      application!!.getMeshInfo().scenes.add(scene!!)
+      application!!.getMeshInfo().saveOrUpdate(context)
     } else {
       eventEmitter.emit(EVENT_SET_SCENE_FAILED, scene!!.id)
     }
@@ -287,6 +307,61 @@ class TelinkBleModule :
 
   @ReactMethod
   fun removeSceneFromDevice(sceneId: Int, deviceId: Int) {
+  }
+
+  @ReactMethod
+  private fun deleteScene(sceneId: Int) {
+     sceneList = application!!.getMeshInfo().scenes
+     tarScene = (sceneList as MutableList<Scene>).find {
+      it.id == sceneId
+    }
+    if (tarScene!!.states!!.size == 0) {
+      (sceneList as MutableList<Scene>).remove(tarScene!!)
+      application!!.getMeshInfo().saveOrUpdate(context)
+//      mAdapter.notifyDataSetChanged()
+    } else {
+//      showWaitingDialog("deleting...")
+      deleteIndex = 0
+      deleteNextDevice()
+    }
+  }
+
+  private fun deleteNextDevice() {
+    if (tarScene?.states?.size != null && deleteIndex > tarScene?.states?.size!! - 1) {
+      (sceneList as MutableList<Scene>).remove(tarScene!!)
+      application!!.getMeshInfo().saveOrUpdate(context)
+      tarScene = null
+//      mAdapter.notifyDataSetChanged()
+//      dismissWaitingDialog()
+//      toastMsg("scene deleted")
+    } else {
+      val deviceInfo: NodeInfo? = application!!.getMeshInfo().getDeviceByMeshAddress(tarScene?.states?.get(deleteIndex)?.address!!)
+
+      // remove offline device
+      if (deviceInfo != null) {
+        if (deviceInfo.getOnOff() === -1) {
+//                tarScene.deleteDevice(deviceInfo);
+          deleteIndex++
+          deleteNextDevice()
+        } else {
+//        handler.removeCallbacks(cmdTimeoutCheckTask)
+//        handler.postDelayed(cmdTimeoutCheckTask, 2000)
+          val eleAdr = deviceInfo?.getTargetEleAdr(MeshSigModel.SIG_MD_SCENE_S.modelId)
+          val appKeyIndex: Int = application!!.getMeshInfo().getDefaultAppKeyIndex()
+          val deleteMessage = eleAdr?.let {
+            SceneDeleteMessage.getSimple(it,
+              appKeyIndex,
+              tarScene!!.id,
+              true, 1)
+          }
+          if (MeshService.getInstance().sendMeshMessage(deleteMessage)) {
+            eventEmitter.emit(EVENT_REMOVE_SCENE_SUCCESS, tarScene!!.id)
+          }
+          // mesh interface
+//                MeshService.getInstance().deleteScene(deviceInfo.meshAddress, true, 1, tarScene.id, null);
+        }
+      }
+    }
   }
 
   @ReactMethod

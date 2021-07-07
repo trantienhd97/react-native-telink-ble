@@ -126,6 +126,13 @@ export interface TelinkBleNativeModule {
   onStartScene(sceneId: number): void;
 
   /**
+   * Delete scene
+   *
+   * @param sceneId {number} - Scene Id
+   */
+  deleteScene(sceneId: number): void;
+
+  /**
    * Unsubscribe a scene
    *
    * @param sceneId {number} - Scene Id

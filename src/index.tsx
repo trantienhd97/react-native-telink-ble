@@ -90,6 +90,10 @@ class TelinkBle implements TelinkBleNativeModule {
     TelinkBleModule.onStartScene(sceneId);
   }
 
+  public deleteScene(sceneId: number): void {
+    TelinkBleModule.deleteScene(sceneId);
+  }
+
   public removeSceneFromDevice(sceneId: number, deviceId: number): void {
     TelinkBleModule.removeSceneFromDevice(sceneId, deviceId);
   }
