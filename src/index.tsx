@@ -82,6 +82,14 @@ class TelinkBle implements TelinkBleNativeModule {
     TelinkBleModule.setSceneForDevice(sceneId, deviceId);
   }
 
+  public setSceneForListDevice(sceneId: number, nodeList: NodeInfo[]): void {
+    TelinkBleModule.setSceneForListDevice(sceneId, nodeList);
+  }
+
+  public onStartScene(sceneId: number): void {
+    TelinkBleModule.onStartScene(sceneId);
+  }
+
   public removeSceneFromDevice(sceneId: number, deviceId: number): void {
     TelinkBleModule.removeSceneFromDevice(sceneId, deviceId);
   }

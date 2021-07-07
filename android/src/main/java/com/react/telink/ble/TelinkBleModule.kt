@@ -15,6 +15,9 @@ import com.telink.ble.mesh.core.message.generic.OnOffSetMessage
 import com.telink.ble.mesh.core.message.lighting.CtlTemperatureSetMessage
 import com.telink.ble.mesh.core.message.lighting.HslSetMessage
 import com.telink.ble.mesh.core.message.lighting.LightnessSetMessage
+import com.telink.ble.mesh.core.message.scene.SceneDeleteMessage
+import com.telink.ble.mesh.core.message.scene.SceneRecallMessage
+import com.telink.ble.mesh.core.message.scene.SceneStoreMessage
 import com.telink.ble.mesh.entity.*
 import com.telink.ble.mesh.foundation.Event
 import com.telink.ble.mesh.foundation.EventListener
@@ -48,6 +51,8 @@ class TelinkBleModule :
 
   private val allGroups: List<GroupInfo>? = null
 
+  private var selectedAdrList: ArrayList<SettingModel>? = null
+
   private var groupAddress = 0
 
   private var deviceAddress = 0
@@ -55,6 +60,10 @@ class TelinkBleModule :
   private var modelIndex = 0
 
   private var opType = 0
+
+  private var settingIndex = 0
+
+  private var scene: Scene? = null
 
   private val models = MeshSigModel.getDefaultSubList()
 
@@ -189,6 +198,91 @@ class TelinkBleModule :
 
   @ReactMethod
   fun setSceneForDevice(sceneId: Int, deviceId: Int) {
+
+  }
+
+  @ReactMethod
+  fun setSceneForListDevice(sceneId: Int, nodeList: ReadableArray) {
+    scene = Scene()
+    scene!!.id = sceneId
+    selectedAdrList = ArrayList()
+    val meshInfo = application!!.getMeshInfo()
+    if (nodeList != null) {
+      var adr: Int
+      for (i in 0 until nodeList.size()) {
+        val deviceInfo = nodeList.getMap(i)
+        val node = meshInfo.nodes?.find {
+          it.meshAddress == deviceInfo!!.getInt("unicastId")
+        }
+
+        if (node != null) {
+          if (node.getOnOff() === -1) {
+            continue
+          }
+        }
+
+        if (node != null) {
+          adr = node.getTargetEleAdr(MeshSigModel.SIG_MD_SCENE_S.modelId)
+          if (adr == -1) {
+//            MeshLogger.log("scene save: device check fail")
+            continue
+          }
+
+          selectedAdrList!!.add(SettingModel(adr, true))
+        }
+
+      }
+    }
+    if (selectedAdrList!!.size == 0) {
+//      toastMsg("select at least one item !")
+    } else {
+//      showWaitingDialog("setting...")
+      settingIndex = 0
+      setNextAddress()
+    }
+  }
+
+  private fun setNextAddress() {
+    if (settingIndex > selectedAdrList!!.size - 1) {
+//      dismissWaitingDialog()
+//      toastMsg("store scene complete")
+//      finish()
+      return
+    }
+    val model = selectedAdrList!![settingIndex]
+
+    val appKeyIndex: Int = application!!.getMeshInfo().getDefaultAppKeyIndex()
+    val meshMessage: MeshMessage
+    meshMessage = if (model.add) {
+      SceneStoreMessage.getSimple(model.address,
+        appKeyIndex,
+        scene!!.id,
+        true, 1)
+    } else {
+      SceneDeleteMessage.getSimple(model.address,
+        appKeyIndex,
+        scene!!.id,
+        true, 1)
+    }
+    if (MeshService.getInstance().sendMeshMessage(meshMessage)) {
+      eventEmitter.emit(EVENT_SET_SCENE_SUCCESS, scene!!.id)
+    } else {
+      eventEmitter.emit(EVENT_SET_SCENE_FAILED, scene!!.id)
+    }
+  }
+
+  private val cmdTimeoutCheckTask = Runnable {
+    settingIndex++
+    setNextAddress()
+  }
+
+  @ReactMethod
+  fun onStartScene(sceneId: Int) {
+//                MeshService.getInstance().cmdSceneRecall(0xFFFF, 0, sceneList.get(position).id, 0, null);
+    val appKeyIndex: Int = application!!.getMeshInfo().getDefaultAppKeyIndex()
+    val recallMessage = SceneRecallMessage.getSimple(0xFFFF,
+      appKeyIndex, sceneId, false, 0)
+    MeshService.getInstance().sendMeshMessage(recallMessage)
   }
 
   @ReactMethod
@@ -646,4 +740,6 @@ class TelinkBleModule :
   override fun autoConnect() {
     MeshService.getInstance().autoConnect(AutoConnectParameters())
   }
+
+  internal class SettingModel(var address: Int, var add: Boolean)
 }

@@ -1,9 +1,17 @@
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { FC } from 'react';
 import React from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import {
+  FlatList,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { Checkbox } from 'react-native-paper';
 import { Button, FAB } from 'react-native-paper';
-import TelinkBle, { NodeInfo } from 'react-native-telink-ble';
+import TelinkBle, { BleEvent, NodeInfo } from 'react-native-telink-ble';
 import nameof from 'ts-nameof.macro';
 import NodeView from '../components/NodeView';
 import { DeviceControlScreen } from './DeviceControlScreen';
@@ -13,6 +21,9 @@ import type { Group } from '../models/group';
 import { asyncStorageRepository } from '../repositories/async-storage-repository';
 import groupList from '../data/groups.json';
 import GroupView from '../components/GroupView';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { showInfo } from '../helpers/toast';
+import SceneView from '../components/SceneView';
 
 export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
   props: Partial<StackScreenProps<any>>
@@ -61,6 +72,79 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
     });
   }, [navigation]);
 
+  const [scene, isScene] = React.useState<boolean>(false);
+
+  const handleToggleScene = React.useCallback(() => {
+    isScene(!scene);
+  }, [scene]);
+
+  const [nodeSelected, setNodeSelected] = React.useState<NodeInfo[]>([]);
+
+  const handleSelectNode = React.useCallback(
+    (node: NodeInfo) => () => {
+      let nodeList: NodeInfo[] = nodeSelected;
+      if (nodeSelected.findIndex((n) => n.unicastId === node.unicastId) >= 0) {
+        setNodeSelected(
+          nodeList.filter((res) => res.unicastId !== node.unicastId)
+        );
+      } else {
+        setNodeSelected(nodeList.concat([node]));
+      }
+    },
+    [nodeSelected]
+  );
+
+  console.log(nodeSelected);
+
+  const handleSelectAll = React.useCallback(() => {
+    if (nodeSelected.length !== 0 && nodeSelected.length === nodes.length) {
+      setNodeSelected([]);
+    } else {
+      setNodeSelected(nodes);
+    }
+  }, [nodeSelected.length, nodes]);
+
+  const handleSave = React.useCallback(async () => {
+    const sceneAsync = await asyncStorageRepository.getScene();
+    if (sceneAsync) {
+      TelinkBle.setSceneForListDevice(
+        Number(Object.keys(sceneAsync)[Object.keys(sceneAsync).length - 1]) +
+          4153,
+        nodeSelected
+      );
+    } else {
+      TelinkBle.setSceneForListDevice(4153, nodeSelected);
+    }
+  }, [nodeSelected]);
+
+  const [listScene, setListScene] =
+    // @ts-ignore
+    React.useState<Record<number, NodeInfo[]>>(null);
+
+  React.useEffect(() => {
+    navigation?.addListener('focus', async () => {
+      const sceneAsync = await asyncStorageRepository.getScene();
+      setListScene(sceneAsync);
+    });
+  }, [navigation]);
+
+  React.useEffect(() => {
+    return TelinkBle.addEventListener(
+      BleEvent.EVENT_SET_SCENE_SUCCESS,
+      async (id: number) => {
+        isScene(false);
+        showInfo('Success');
+        const sceneAsync = await asyncStorageRepository.getScene();
+        const albumMapper: Record<number, NodeInfo[]> = sceneAsync ?? {};
+        if (id) {
+          albumMapper[id] = nodeSelected;
+        }
+        await asyncStorageRepository.saveScene(albumMapper);
+        setListScene(albumMapper);
+      }
+    );
+  }, [nodeSelected, props.navigation]);
+
   return (
     <>
       <PagerView
@@ -79,6 +163,7 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
               return (
                 <>
                   <NodeView
+                    isSwitch={true}
                     node={item}
                     index={index}
                     onPress={handleNavigateToDeviceControl(item)}
@@ -136,6 +221,73 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
             }}
           />
         </View>
+        <View key="3">
+          <FlatList
+            style={styles.flatListView}
+            data={listScene ? Object.keys(listScene) : []}
+            keyExtractor={(key: string) => key}
+            renderItem={({ item, index }) => {
+              return <SceneView key={index} id={item} />;
+            }}
+            ListHeaderComponent={
+              <View style={styles.lineView}>
+                <Pressable
+                  style={styles.addIconView}
+                  onPress={handleToggleScene}
+                >
+                  <MaterialIcons name="add" size={20} style={styles.icon} />
+                </Pressable>
+              </View>
+            }
+            ListEmptyComponent={<View />}
+          />
+        </View>
+
+        <Modal visible={scene}>
+          <View style={styles.headerView}>
+            <Pressable style={styles.addIconView} onPress={handleToggleScene}>
+              <MaterialIcons name="clear" size={20} style={styles.icon} />
+            </Pressable>
+            <Text style={styles.icon}>Scene</Text>
+            <Checkbox
+              onPress={handleSelectAll}
+              status={
+                nodeSelected.length !== 0 &&
+                nodeSelected.length === nodes.length
+                  ? 'checked'
+                  : 'unchecked'
+              }
+              color={'white'}
+              uncheckedColor={'white'}
+            />
+          </View>
+          <FlatList
+            style={styles.outerContainer}
+            contentContainerStyle={styles.innerContainer}
+            data={nodes}
+            keyExtractor={(nodeInfo: NodeInfo) => nodeInfo.address}
+            renderItem={({ item, index }) => {
+              return (
+                <>
+                  <NodeView
+                    selected={
+                      nodeSelected.findIndex(
+                        (n) => n.unicastId === item.unicastId
+                      ) >= 0
+                    }
+                    isSwitch={false}
+                    node={item}
+                    index={index}
+                    onPress={handleSelectNode(item)}
+                  />
+                </>
+              );
+            }}
+          />
+          <Pressable style={styles.btnSaveScene} onPress={handleSave}>
+            <Text style={styles.icon}>Lưu</Text>
+          </Pressable>
+        </Modal>
       </PagerView>
     </>
   );
@@ -177,5 +329,39 @@ const styles = StyleSheet.create({
   },
   flatListView: {
     padding: 16,
+  },
+  icon: {
+    color: 'white',
+  },
+  addIconView: {
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'blue',
+    width: 40,
+    height: 40,
+  },
+  lineView: {
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  headerView: {
+    backgroundColor: 'blue',
+    height: 80,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    padding: 16,
+  },
+  btnSaveScene: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    height: 40,
+    width: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 100,
+    backgroundColor: 'blue',
   },
 });

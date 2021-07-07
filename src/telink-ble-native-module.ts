@@ -1,5 +1,6 @@
 import type { BluetoothState } from './bluetooth-state';
 import type { HSL } from 'colorsys';
+import type { NodeInfo } from './node-info';
 
 export interface TelinkBleNativeModule {
   /**
@@ -108,6 +109,21 @@ export interface TelinkBleNativeModule {
    * @param deviceId {number} - Device mesh address
    */
   setSceneForDevice(sceneId: number, deviceId: number): void;
+
+  /**
+   * Add device list to scene
+   *
+   * @param sceneId {number} - Scene Id
+   * @param nodeList
+   */
+  setSceneForListDevice(sceneId: number, nodeList: NodeInfo[]): void;
+
+  /**
+   * Control scene
+   *
+   * @param sceneId {number} - Scene Id
+   */
+  onStartScene(sceneId: number): void;
 
   /**
    * Unsubscribe a scene

@@ -85,8 +85,6 @@ export default function DeviceView(props: DeviceViewProps) {
     currentMacAddress === device?.address &&
     (state === ScanState.success || state === ScanState.fail);
 
-  console.log(listSuccess);
-
   return (
     <TouchableOpacity
       style={[
