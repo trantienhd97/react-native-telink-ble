@@ -207,11 +207,11 @@ class TelinkBleModule :
     val sceneTaget = application!!.getMeshInfo().scenes?.find { it.id == sceneId }
 
     if (sceneTaget != null) {
-      application!!.getMeshInfo().scenes.remove(sceneTaget)
+      scene = sceneTaget
+    } else {
+      scene = Scene()
+      scene!!.id = sceneId
     }
-
-    scene = Scene()
-    scene!!.id = sceneId
 
     val meshInfo = application!!.getMeshInfo()
     var adr: Int
@@ -230,6 +230,7 @@ class TelinkBleModule :
 
     if (state != null) {
       scene!!.states.add(state)
+      application!!.getMeshInfo().saveOrUpdate(context)
     }
 
     if (node != null) {
@@ -376,55 +377,31 @@ class TelinkBleModule :
   @ReactMethod
   private fun deleteScene(sceneId: Int) {
      sceneList = application!!.getMeshInfo().scenes
-     tarScene = (sceneList as MutableList<Scene>).find {
-      it.id == sceneId
-    }
-    if (tarScene!!.states!!.size == 0) {
-      (sceneList as MutableList<Scene>).remove(tarScene!!)
-      application!!.getMeshInfo().saveOrUpdate(context)
-//      mAdapter.notifyDataSetChanged()
-    } else {
-//      showWaitingDialog("deleting...")
-      deleteIndex = 0
-      deleteNextDevice()
-    }
-  }
-
-  private fun deleteNextDevice() {
-    if (tarScene?.states?.size != null && deleteIndex > tarScene?.states?.size!! - 1) {
-      (sceneList as MutableList<Scene>).remove(tarScene!!)
-      application!!.getMeshInfo().saveOrUpdate(context)
-      tarScene = null
-//      mAdapter.notifyDataSetChanged()
-//      dismissWaitingDialog()
-//      toastMsg("scene deleted")
-    } else {
-      val deviceInfo: NodeInfo? = application!!.getMeshInfo().getDeviceByMeshAddress(tarScene?.states?.get(deleteIndex)?.address!!)
-
-      // remove offline device
-      if (deviceInfo != null) {
-        if (deviceInfo.getOnOff() === -1) {
-//                tarScene.deleteDevice(deviceInfo);
-          deleteIndex++
-          deleteNextDevice()
-        } else {
-//        handler.removeCallbacks(cmdTimeoutCheckTask)
-//        handler.postDelayed(cmdTimeoutCheckTask, 2000)
-          val eleAdr = deviceInfo?.getTargetEleAdr(MeshSigModel.SIG_MD_SCENE_S.modelId)
-          val appKeyIndex: Int = application!!.getMeshInfo().getDefaultAppKeyIndex()
-          val deleteMessage = eleAdr?.let {
-            SceneDeleteMessage.getSimple(it,
-              appKeyIndex,
-              tarScene!!.id,
-              true, 1)
+    var success: Boolean? = null
+    val sceneTaget = application!!.getMeshInfo().scenes?.find { it.id == sceneId }
+    if (sceneTaget != null) {
+      for (sta in sceneTaget?.states) {
+        val deviceInfo: NodeInfo? = application!!.getMeshInfo().getDeviceByMeshAddress(sta?.address!!)
+        if (deviceInfo != null && sceneTaget.id == sceneId) {
+          if (deviceInfo.getOnOff() === -1) {
+          } else {
+            val eleAdr = deviceInfo?.getTargetEleAdr(MeshSigModel.SIG_MD_SCENE_S.modelId)
+            val appKeyIndex: Int = application!!.getMeshInfo().getDefaultAppKeyIndex()
+            val deleteMessage = eleAdr?.let {
+              SceneDeleteMessage.getSimple(it,
+                appKeyIndex,
+                sceneTaget!!.id,
+                true, 1)
+            }
+            success = MeshService.getInstance().sendMeshMessage(deleteMessage)
           }
-          if (MeshService.getInstance().sendMeshMessage(deleteMessage)) {
-            eventEmitter.emit(EVENT_REMOVE_SCENE_SUCCESS, tarScene!!.id)
-          }
-          // mesh interface
-//                MeshService.getInstance().deleteScene(deviceInfo.meshAddress, true, 1, tarScene.id, null);
         }
       }
+    }
+    if (success == true) {
+      eventEmitter.emit(EVENT_REMOVE_SCENE_SUCCESS, sceneId)
+    } else {
+      eventEmitter.emit(EVENT_REMOVE_SCENE_FAILED, sceneId)
     }
   }
 

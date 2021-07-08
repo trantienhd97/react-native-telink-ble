@@ -126,7 +126,7 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
       } else {
         setCurrentSceneId(4153);
         TelinkBle.setSceneForDevice(
-          currentSceneId ? currentSceneId : Number(4153) + 1,
+          currentSceneId ? currentSceneId : Number(4153),
           nodeSelected[count].unicastId,
           count === nodeSelected.length - 1,
           count.toString()
@@ -164,7 +164,9 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
           setNodeSelected([]);
         } else {
           const index = (await Number(id)) + 1;
-          await handleSave(index);
+          setTimeout(function () {
+            handleSave(index);
+          }, 2000);
         }
       }
     );
@@ -230,7 +232,6 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
                     onPress={() => {
                       TelinkBle.getNodes().then((newNodes: NodeInfo[]) => {
                         setNodes(newNodes);
-                        asyncStorageRepository.removeScene();
                         console.log(newNodes);
                       });
                     }}
