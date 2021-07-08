@@ -203,8 +203,74 @@ class TelinkBleModule :
   }
 
   @ReactMethod
-  fun setSceneForDevice(sceneId: Int, deviceId: Int) {
+  fun setSceneForDevice(sceneId: Int, deviceId: Int, end: Boolean, deviceIndex: String) {
+    val sceneTaget = application!!.getMeshInfo().scenes?.find { it.id == sceneId }
 
+    if (sceneTaget != null) {
+      application!!.getMeshInfo().scenes.remove(sceneTaget)
+    }
+
+    scene = Scene()
+    scene!!.id = sceneId
+
+    val meshInfo = application!!.getMeshInfo()
+    var adr: Int
+    deviceInfo = application!!.getMeshInfo().getDeviceByMeshAddress(deviceId)
+    val node = meshInfo.nodes?.find {
+      it.meshAddress == deviceInfo!!.meshAddress
+    }
+
+    var state: Scene.SceneState? = Scene.SceneState()
+    if (node != null) {
+      state?.address = node.meshAddress
+      state?.onOff = node.getOnOff()
+      state?.lum = node.lum
+      state?.temp = node.temp
+    }
+
+    if (state != null) {
+      scene!!.states.add(state)
+    }
+
+    if (node != null) {
+      if (node.getOnOff() === -1) {
+      }
+    }
+
+    if (node != null) {
+      adr = node.getTargetEleAdr(MeshSigModel.SIG_MD_SCENE_S.modelId)
+      if (adr == -1) {
+      }
+
+       var settingModel =  SettingModel(adr, true)
+
+      val appKeyIndex: Int = application!!.getMeshInfo().getDefaultAppKeyIndex()
+
+      val meshMessage: MeshMessage
+      meshMessage = if (settingModel.add) {
+        SceneStoreMessage.getSimple(settingModel.address,
+          appKeyIndex,
+          scene!!.id,
+          true, 1)
+      } else {
+        SceneDeleteMessage.getSimple(settingModel.address,
+          appKeyIndex,
+          scene!!.id,
+          true, 1)
+      }
+      if (MeshService.getInstance().sendMeshMessage(meshMessage)) {
+        application!!.getMeshInfo().scenes.add(scene!!)
+        application!!.getMeshInfo().saveOrUpdate(context)
+        if (end) {
+          eventEmitter.emit(EVENT_SET_SCENE_SUCCESS, scene!!.id)
+        }  else {
+          eventEmitter.emit(EVENT_SET_SCENE_SUCCESS, deviceIndex)
+        }
+      } else {
+        eventEmitter.emit(EVENT_SET_SCENE_FAILED, scene!!.id)
+      }
+
+    }
   }
 
   @ReactMethod
@@ -242,7 +308,6 @@ class TelinkBleModule :
         if (node != null) {
           adr = node.getTargetEleAdr(MeshSigModel.SIG_MD_SCENE_S.modelId)
           if (adr == -1) {
-//            MeshLogger.log("scene save: device check fail")
             continue
           }
 
@@ -252,9 +317,7 @@ class TelinkBleModule :
       }
     }
     if (selectedAdrList!!.size == 0) {
-//      toastMsg("select at least one item !")
     } else {
-//      showWaitingDialog("setting...")
       settingIndex = 0
       setNextAddress()
     }
@@ -262,14 +325,15 @@ class TelinkBleModule :
 
   private fun setNextAddress() {
     if (settingIndex > selectedAdrList!!.size - 1) {
-//      dismissWaitingDialog()
-//      toastMsg("store scene complete")
-//      finish()
       return
     }
     val model = selectedAdrList!![settingIndex]
 
     val appKeyIndex: Int = application!!.getMeshInfo().getDefaultAppKeyIndex()
+    if (settingIndex < selectedAdrList!!.size) {
+      settingIndex++
+      setNextAddress()
+    }
     val meshMessage: MeshMessage
     meshMessage = if (model.add) {
       SceneStoreMessage.getSimple(model.address,

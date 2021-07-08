@@ -107,8 +107,15 @@ export interface TelinkBleNativeModule {
    *
    * @param sceneId {number} - Scene Id
    * @param deviceId {number} - Device mesh address
+   * @param end
+   * @param deviceIndex
    */
-  setSceneForDevice(sceneId: number, deviceId: number): void;
+  setSceneForDevice(
+    sceneId: number,
+    deviceId: number,
+    end: boolean,
+    deviceIndex: string
+  ): void;
 
   /**
    * Add device list to scene
