@@ -55,6 +55,8 @@ class TelinkBleModule :
 
   private var deviceInfo: NodeInfo? = null
 
+  private var eventDevice: WritableNativeMap? = null
+
   private val allGroups: List<GroupInfo>? = null
 
   private var selectedAdrList: ArrayList<SettingModel>? = null
@@ -77,7 +79,7 @@ class TelinkBleModule :
     mHandler = handler
   }
 
-  private val eventEmitter: DeviceEventManagerModule.RCTDeviceEventEmitter
+  public val eventEmitter: DeviceEventManagerModule.RCTDeviceEventEmitter
     get() = context!!.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
 
 
@@ -497,7 +499,17 @@ class TelinkBleModule :
         false,
         0
       )
-      MeshService.getInstance().sendMeshMessage(hslSetMessage)
+      if (MeshService.getInstance().sendMeshMessage(hslSetMessage)) {
+        eventDevice = WritableNativeMap()
+        eventDevice!!.putString("type", "hsl")
+        eventDevice!!.putString("macAddress", node.macAddress)
+        eventDevice!!.putInt("hue", hue)
+        eventDevice!!.putInt("sat", sat)
+        eventDevice!!.putInt("lum", lum)
+        if (eventDevice != null) {
+          eventEmitter.emit(EVENT_DEVICE_STATE, eventDevice)
+        }
+      }
     }
   }
 
@@ -532,7 +544,41 @@ class TelinkBleModule :
   private val timePubSetTimeoutTask =
     Runnable { onTimePublishComplete(false, "time pub set timeout") }
 
+  fun emitStateDevice(event: Event<String?>?) {
+    eventDevice = WritableNativeMap()
+    if (event!!.type == ProvisioningEvent.EVENT_TYPE_PROVISION_BEGIN ||
+      event!!.type == ProvisioningEvent.EVENT_TYPE_PROVISION_SUCCESS ||
+      event!!.type == ProvisioningEvent.EVENT_TYPE_PROVISION_FAIL) {
+      eventDevice!!.putString("type", event?.type)
+      eventDevice!!.putString("macAddress", (event as ProvisioningEvent).provisioningDevice.bluetoothDevice.toString())
+      if (event != null) {
+        eventEmitter.emit(EVENT_DEVICE_STATE, eventDevice)
+      }
+    }
+
+    if (event!!.type == ScanEvent.EVENT_TYPE_SCAN_TIMEOUT ||
+      event!!.type == ScanEvent.EVENT_TYPE_DEVICE_FOUND ||
+      event!!.type == ScanEvent.EVENT_TYPE_SCAN_FAIL ||
+      event!!.type == ScanEvent.EVENT_TYPE_SCAN_LOCATION_WARNING) {
+      eventDevice!!.putString("type", event?.type)
+      eventDevice!!.putString("macAddress", (event as ScanEvent).advertisingDevice?.device?.address)
+      if (event != null) {
+        eventEmitter.emit(EVENT_DEVICE_STATE, eventDevice)
+      }
+    }
+
+    if (event!!.type == BindingEvent.EVENT_TYPE_BIND_FAIL ||
+      event!!.type == BindingEvent.EVENT_TYPE_BIND_SUCCESS) {
+      eventDevice!!.putString("type", event?.type)
+      eventDevice!!.putString("macAddress", (event as BindingEvent).bindingDevice?.meshAddress?.toString())
+      if (event != null) {
+        eventEmitter.emit(EVENT_DEVICE_STATE, eventDevice)
+      }
+    }
+  }
+
   override fun performed(event: Event<String?>?) {
+    emitStateDevice(event)
     if (event!!.type == ProvisioningEvent.EVENT_TYPE_PROVISION_BEGIN) {
       onProvisionStart(event as ProvisioningEvent)
     } else if (event.type == ProvisioningEvent.EVENT_TYPE_PROVISION_SUCCESS) {
@@ -542,7 +588,6 @@ class TelinkBleModule :
       autoConnect()
     } else if (event.type == ProvisioningEvent.EVENT_TYPE_PROVISION_FAIL) {
       onProvisionFail(event as ProvisioningEvent)
-
       // provision next when provision failed
       // TODO: provision next device
     } else if (event.type == BindingEvent.EVENT_TYPE_BIND_SUCCESS) {
@@ -751,7 +796,6 @@ class TelinkBleModule :
     } else {
       // no need to set time publish
       pvDevice.state = NetworkingState.BIND_SUCCESS
-      // TODO: provision new device
     }
     application!!.getMeshInfo().saveOrUpdate(context)
     eventEmitter.emit(EVENT_BINDING_SUCCESS, true)

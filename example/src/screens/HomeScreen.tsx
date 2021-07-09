@@ -24,6 +24,7 @@ import GroupView from '../components/GroupView';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { showInfo } from '../helpers/toast';
 import SceneView from '../components/SceneView';
+import type { DeviceState } from '../../../src/device-state';
 
 export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
   props: Partial<StackScreenProps<any>>
@@ -190,6 +191,25 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
       }
     );
   }, []);
+
+  const handleGetDeviceState = React.useCallback((state: DeviceState) => {
+    if (state) {
+      if (state?.type === 'hsl') {
+        showInfo(
+          `Thiết bị ${state?.macAddress} đã thay đổi hue: ${state?.hue} lum: ${state.lum} sat ${state.sat} tem: ${state.tem}`
+        );
+      } else {
+        showInfo(`Thiết bị ${state?.macAddress} đã ${state?.type}`);
+      }
+    }
+  }, []);
+
+  React.useEffect(() => {
+    return TelinkBle.addEventListener(
+      BleEvent.EVENT_DEVICE_STATE,
+      handleGetDeviceState
+    );
+  }, [handleGetDeviceState]);
 
   return (
     <>
