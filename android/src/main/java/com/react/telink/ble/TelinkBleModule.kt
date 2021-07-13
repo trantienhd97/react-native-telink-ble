@@ -160,7 +160,15 @@ class TelinkBleModule :
       !AppSettings.ONLINE_STATUS_ENABLE,
       if (!AppSettings.ONLINE_STATUS_ENABLE) rspMax else 0
     )
-    MeshService.getInstance().sendMeshMessage(onOffSetMessage)
+    if (MeshService.getInstance().sendMeshMessage(onOffSetMessage)) {
+      eventDevice = WritableNativeMap()
+      eventDevice!!.putString("type", "onOff")
+      eventDevice!!.putString("macAddress", address.toString())
+      eventDevice!!.putInt("onOff", onOff)
+      if (eventDevice != null) {
+        eventEmitter.emit(EVENT_DEVICE_STATE, eventDevice)
+      }
+    }
   }
 
   @ReactMethod
@@ -456,7 +464,15 @@ class TelinkBleModule :
         false,
         0
       )
-      MeshService.getInstance().sendMeshMessage(message)
+      if (MeshService.getInstance().sendMeshMessage(message)) {
+        eventDevice = WritableNativeMap()
+        eventDevice!!.putString("type", "lum")
+        eventDevice!!.putString("macAddress", node.macAddress)
+        eventDevice!!.putInt("lum", lum)
+        if (eventDevice != null) {
+          eventEmitter.emit(EVENT_DEVICE_STATE, eventDevice)
+        }
+      }
     }
   }
 
@@ -476,7 +492,15 @@ class TelinkBleModule :
         false,
         0
       )
-      MeshService.getInstance().sendMeshMessage(temperatureSetMessage)
+      if (MeshService.getInstance().sendMeshMessage(temperatureSetMessage)) {
+        eventDevice = WritableNativeMap()
+        eventDevice!!.putString("type", "tem")
+        eventDevice!!.putString("macAddress", node.macAddress)
+        eventDevice!!.putInt("tem", temp)
+        if (eventDevice != null) {
+          eventEmitter.emit(EVENT_DEVICE_STATE, eventDevice)
+        }
+      }
     }
   }
 
@@ -588,13 +612,10 @@ class TelinkBleModule :
       autoConnect()
     } else if (event.type == ProvisioningEvent.EVENT_TYPE_PROVISION_FAIL) {
       onProvisionFail(event as ProvisioningEvent)
-      // provision next when provision failed
-      // TODO: provision next device
     } else if (event.type == BindingEvent.EVENT_TYPE_BIND_SUCCESS) {
       onKeyBindSuccess(event as BindingEvent)
     } else if (event.type == BindingEvent.EVENT_TYPE_BIND_FAIL) {
       onKeyBindFail(event as BindingEvent)
-      // TODO: provision next
     } else if (event.type == ScanEvent.EVENT_TYPE_DEVICE_FOUND) {
       val device = (event as ScanEvent).advertisingDevice
       onDeviceFound(device)
@@ -738,8 +759,6 @@ class TelinkBleModule :
         "action start -> 0x" + String.format("%04X", address)
       )
       processingDevice.nodeInfo.meshAddress = address
-      // TODO: emit to JS
-
       // check if oob exists
       val oob: ByteArray? =
         application!!.getMeshInfo().getOOBByDeviceUUID(deviceUUID)

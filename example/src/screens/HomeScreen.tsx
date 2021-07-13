@@ -24,7 +24,7 @@ import GroupView from '../components/GroupView';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { showInfo } from '../helpers/toast';
 import SceneView from '../components/SceneView';
-import type { DeviceState } from '../../../src/device-state';
+import { deviceService } from '../services/device-service';
 
 export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
   props: Partial<StackScreenProps<any>>
@@ -40,6 +40,8 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
   }, [navigation]);
 
   const [groups, setGroups] = React.useState<Group[]>([]);
+
+  const [handleGetDeviceState] = deviceService.useNotificationDeviceState();
 
   React.useEffect(() => {
     const unsubscribe = navigation?.addListener('focus', async () => {
@@ -190,18 +192,6 @@ export const HomeScreen: FC<Partial<StackScreenProps<any>>> = (
         await asyncStorageRepository.saveScene(albumMapper);
       }
     );
-  }, []);
-
-  const handleGetDeviceState = React.useCallback((state: DeviceState) => {
-    if (state) {
-      if (state?.type === 'hsl') {
-        showInfo(
-          `Thiết bị ${state?.macAddress} đã thay đổi hue: ${state?.hue} lum: ${state.lum} sat ${state.sat} tem: ${state.tem}`
-        );
-      } else {
-        showInfo(`Thiết bị ${state?.macAddress} đã ${state?.type}`);
-      }
-    }
   }, []);
 
   React.useEffect(() => {

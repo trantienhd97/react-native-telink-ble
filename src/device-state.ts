@@ -10,4 +10,6 @@ export interface DeviceState {
   lum: number;
 
   tem: number;
+
+  onOff: 0 | 1;
 }
